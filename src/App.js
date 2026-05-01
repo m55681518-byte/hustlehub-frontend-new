@@ -1,58 +1,16 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://hcriatxprcifgwfqokbw.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjcmlhdHhwcmNpZmd3ZnFva2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODAyNzIsImV4cCI6MjA5MzE1NjI3Mn0.JUbLKt8MZD15pf9NRz-xrIbcaBNNzPcv_TShH3YeHiU'
-)
-
-const ALL_HUSTLES = [
-  { id: 1, title: 'Take online surveys', pay: 'KES 50-200', time: '10 min', free: true, category: 'Quick' },
-  { id: 2, title: 'Test mobile apps', pay: 'KES 100-500', time: '20 min', free: true, category: 'Tech' },
-  { id: 3, title: 'Share product reviews', pay: 'KES 80-300', time: '15 min', free: true, category: 'Social' },
-  { id: 4, title: 'Transcribe audio clips', pay: 'KES 300-1,000', time: '30 min', free: false, category: 'Writing' },
-  { id: 5, title: 'Data entry tasks', pay: 'KES 200-800', time: '25 min', free: false, category: 'Office' },
-  { id: 6, title: 'Virtual assistant gigs', pay: 'KES 500-2,000', time: '1 hour', free: false, category: 'Service' },
-  { id: 7, title: 'Social media management', pay: 'KES 1,000-5,000', time: 'Daily', free: false, category: 'Marketing' },
-  { id: 8, title: 'Graphic design tasks', pay: 'KES 800-3,000', time: '2 hours', free: false, category: 'Creative' },
-  { id: 9, title: 'Video editing', pay: 'KES 1,500-5,000', time: '3 hours', free: false, category: 'Creative' },
-  { id: 10, title: 'Online tutoring', pay: 'KES 500-2,000', time: '1 hour', free: false, category: 'Education' },
-]
-
-function PlaceholderAd({ type }) {
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      borderRadius: '12px',
-      padding: type === 'banner' ? '16px' : '24px',
-      margin: '16px 0',
-      textAlign: 'center',
-      color: '#fff',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      <div style={{ fontSize: type === 'banner' ? '14px' : '18px', fontWeight: 700, marginBottom: '4px' }}>
-        📢 Advertisement
-      </div>
-      <div style={{ fontSize: type === 'banner' ? '12px' : '14px', opacity: 0.9 }}>
-        {type === 'banner' ? 'Your ad here - Banner' : 'Your ad here - Large'}
-      </div>
-      <div style={{
-        position: 'absolute',
-        top: '8px',
-        right: '8px',
-        fontSize: '10px',
-        background: 'rgba(0,0,0,0.3)',
-        padding: '2px 8px',
-        borderRadius: '4px'
-      }}>
-        Ad
-      </div>
-    </div>
-  )
-}
+import { supabase } from './supabaseClient'
 
 export default function App() {
+  const [tab, setTab] = useState('hustles')
+  const [isPremium, setIsPremium] = useState(false)
+  const [showPay, setShowPay] = useState(false)
+  const [payStatus, setPayStatus] = useState('idle')
+  const [phone, setPhone] = useState('')
+  const [pollInterval, setPollInterval] = useState(null)
+  const [checkoutId, setCheckoutId] = useState(null)
+
+  // Auth state
   const [user, setUser] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [authEmail, setAuthEmail] = useState('')
@@ -62,48 +20,64 @@ export default function App() {
   const [isSignUp, setIsSignUp] = useState(true)
   const [authMessage, setAuthMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
-  const [unlockedCount, setUnlockedCount] = useState(3)
-  const [watchingAd, setWatchingAd] = useState(false)
-  const [showPayment, setShowPayment] = useState(false)
-  const [payPhone, setPayPhone] = useState('')
-  const [payStatus, setPayStatus] = useState('idle')
 
+  // Check auth on load
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
     }
     checkUser()
+
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null)
     })
-    return () => listener.subscription.unsubscribe()
+
+    return () => {
+      listener.subscription.unsubscribe()
+    }
   }, [])
+
+  const hustles = [
+    { id: 1, title: 'Complete surveys', pay: 'KES 50-200', free: true },
+    { id: 2, title: 'Watch ads', pay: 'KES 20-100', free: true },
+    { id: 3, title: 'Refer friends', pay: 'KES 100-500', free: true },
+    { id: 4, title: 'Premium tasks', pay: 'KES 500-5,000', free: false },
+    { id: 5, title: 'Brand partnerships', pay: 'KES 1,000-10,000', free: false },
+  ]
 
   async function handleAuthSubmit(e) {
     e.preventDefault()
     setAuthLoading(true)
     setAuthMessage('')
+
     try {
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password: authPassword,
-          options: { data: { full_name: authFullName, phone: authPhone } }
+          options: {
+            data: {
+              full_name: authFullName,
+              phone: authPhone
+            }
+          }
         })
         if (error) throw error
-        setAuthMessage('✅ Account created! Check your email.')
+        setAuthMessage('Sign up successful! Check your email to confirm.')
+        console.log('New user UUID:', data.user.id)
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: authEmail,
           password: authPassword
         })
         if (error) throw error
-        setAuthMessage('✅ Signed in!')
-        setTimeout(() => setShowAuth(false), 1000)
+        setAuthMessage('Signed in!')
+        setShowAuth(false)
+        console.log('Signed in user UUID:', data.user.id)
       }
     } catch (err) {
-      setAuthMessage('❌ ' + err.message)
+      setAuthMessage('Error: ' + err.message)
     } finally {
       setAuthLoading(false)
     }
@@ -114,396 +88,291 @@ export default function App() {
     setUser(null)
   }
 
-  function handleWatchAd() {
-    setWatchingAd(true)
-    setTimeout(() => {
-      setWatchingAd(false)
-      setUnlockedCount(prev => Math.min(prev + 1, ALL_HUSTLES.length))
-    }, 5000)
-  }
-
   async function handlePayment() {
     if (!user) {
       setShowAuth(true)
       return
     }
-    if (!payPhone) return alert('Enter M-Pesa number')
+    if (!phone) return alert('Enter M-Pesa phone number')
     setPayStatus('sending')
+
     try {
       const res = await fetch('https://hustlehub-backend-3h1v.onrender.com/stkpush', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: payPhone,
-          amount: 30,
+          phone: phone,
+          amount: 100,
           userId: user.id,
-          description: 'Unlock Premium Hustles'
+          description: 'HustleHub Pro Subscription'
         })
       })
       const data = await res.json()
-      if (data.success) {
+      if (data.success && data.data?.checkoutRequestId) {
+        setCheckoutId(data.data.checkoutRequestId)
         setPayStatus('waiting')
-        const interval = setInterval(async () => {
-          const statusRes = await fetch(`https://hustlehub-backend-3h1v.onrender.com/payment-status/${data.data.checkoutRequestId}`)
-          const statusData = await statusRes.json()
-          if (statusData.status === 'success') {
-            clearInterval(interval)
-            setPayStatus('success')
-            setUnlockedCount(ALL_HUSTLES.length)
-            setTimeout(() => setShowPayment(false), 2000)
-          } else if (statusData.status === 'failed') {
-            clearInterval(interval)
-            setPayStatus('failed')
-          }
-        }, 3000)
+        startPolling(data.data.checkoutRequestId)
       } else {
         setPayStatus('failed')
+        alert(data.message || 'Payment failed')
       }
     } catch (err) {
       setPayStatus('failed')
+      alert('Error: ' + err.message)
     }
   }
 
-  const freeHustles = ALL_HUSTLES.slice(0, unlockedCount)
-  const lockedHustles = ALL_HUSTLES.slice(unlockedCount)
-
-  const inputStyle = {
-    width: '100%',
-    padding: '14px',
-    borderRadius: '10px',
-    border: '1px solid #dee2e6',
-    background: '#f8f9fa',
-    fontSize: '15px',
-    marginBottom: '12px',
-    boxSizing: 'border-box',
-    outline: 'none'
+  function startPolling(id) {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`https://hustlehub-backend-3h1v.onrender.com/payment-status/${id}`)
+        const data = await res.json()
+        if (data.status === 'success') {
+          clearInterval(interval)
+          setPollInterval(null)
+          setPayStatus('success')
+          setIsPremium(true)
+          setShowPay(false)
+        } else if (data.status === 'failed') {
+          clearInterval(interval)
+          setPollInterval(null)
+          setPayStatus('failed')
+        }
+      } catch (err) {
+        console.error('Poll error:', err)
+      }
+    }, 3000)
+    setPollInterval(interval)
   }
 
+  useEffect(() => {
+    return () => {
+      if (pollInterval) clearInterval(pollInterval)
+    }
+  }, [pollInterval])
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#f8f9fa',
-      color: '#1a1a2e',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      maxWidth: '100%',
-      overflowX: 'hidden'
-    }}>
-      
-      <header style={{
-        background: '#fff',
-        borderBottom: '1px solid #e9ecef',
-        padding: '16px 20px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div style={{ fontSize: '20px', fontWeight: 800, color: '#0070f3' }}>
-          🔥 HustleHub
-        </div>
-        {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '14px', color: '#6c757d' }}>
-              👤 {user.user_metadata?.full_name || user.email}
-            </span>
-            <button onClick={handleSignOut} style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: '1px solid #dc3545',
-              background: 'transparent',
-              color: '#dc3545',
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontWeight: 600
-            }}>
-              Sign Out
-            </button>
+    <div style={{ minHeight: '100vh', background: '#0a0a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', padding: '20px' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#fff' }}>
+            <span style={{ marginRight: '8px' }}>🔥</span> HustleHub Pro
           </div>
-        ) : (
-          <button onClick={() => setShowAuth(true)} style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            border: 'none',
-            background: '#0070f3',
-            color: '#fff',
-            fontSize: '14px',
-            cursor: 'pointer',
-            fontWeight: 600
-          }}>
-            Sign In
-          </button>
-        )}
-      </header>
-
-      <div style={{
-        background: 'linear-gradient(135deg, #0070f3 0%, #00d4aa 100%)',
-        color: '#fff',
-        padding: '40px 20px',
-        textAlign: 'center'
-      }}>
-        <h1 style={{
-          fontSize: '28px',
-          fontWeight: 800,
-          marginBottom: '12px',
-          lineHeight: 1.2
-        }}>
-          Earn money using your phone in Kenya
-        </h1>
-        <p style={{
-          fontSize: '16px',
-          opacity: 0.95,
-          marginBottom: '8px'
-        }}>
-          Proven hustles updated daily
-        </p>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(255,255,255,0.2)',
-          padding: '8px 16px',
-          borderRadius: '20px',
-          fontSize: '14px',
-          marginTop: '16px'
-        }}>
-          <span style={{ color: '#ffd700' }}>⚡</span>
-          New hustles added today
-        </div>
-      </div>
-
-      <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-
-        <div style={{
-          background: '#fff3cd',
-          border: '1px solid #ffeaa7',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <span style={{ fontSize: '24px' }}>⏰</span>
           <div>
-            <div style={{ fontWeight: 700, color: '#856404', fontSize: '14px' }}>
-              Limited free access
-            </div>
-            <div style={{ color: '#856404', fontSize: '13px' }}>
-              {lockedHustles.length} premium hustles locked. Unlock now!
-            </div>
-          </div>
-        </div>
-
-        <h2 style={{
-          fontSize: '18px',
-          fontWeight: 700,
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ color: '#28a745' }}>✓</span>
-          Free Hustles ({freeHustles.length})
-        </h2>
-
-        {freeHustles.map((hustle, index) => (
-          <div key={hustle.id}>
-            <div style={{
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '12px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              border: '1px solid #e9ecef'
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                marginBottom: '12px'
-              }}>
-                <div>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#0070f3',
-                    background: '#e7f3ff',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    textTransform: 'uppercase'
-                  }}>
-                    {hustle.category}
-                  </span>
-                  <h3 style={{
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    margin: '8px 0 4px 0'
-                  }}>
-                    {hustle.title}
-                  </h3>
-                </div>
-                <span style={{
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  color: '#28a745'
-                }}>
-                  {hustle.pay}
+            {user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ color: '#a0a0c0', fontSize: '14px' }}>
+                  👤 {user.user_metadata?.full_name || user.email}
                 </span>
+                <button 
+                  onClick={handleSignOut}
+                  style={{ 
+                    padding: '8px 16px', 
+                    borderRadius: '8px', 
+                    border: '1px solid #ff4757',
+                    background: 'transparent',
+                    color: '#ff4757',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Sign Out
+                </button>
               </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <span style={{ fontSize: '13px', color: '#6c757d' }}>
-                  ⏱️ {hustle.time}
-                </span>
-                <button style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
+            ) : (
+              <button 
+                onClick={() => setShowAuth(true)}
+                style={{ 
+                  padding: '10px 20px', 
+                  borderRadius: '8px', 
                   border: 'none',
                   background: '#0070f3',
                   color: '#fff',
+                  cursor: 'pointer',
                   fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}>
-                  Start Earning
-                </button>
-              </div>
+                  fontWeight: 600
+                }}
+              >
+                Sign In / Sign Up
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Hero */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h1 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '16px', background: 'linear-gradient(90deg, #0070f3, #00d4aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Earn KES 500-5,000 Daily
+          </h1>
+          <p style={{ color: '#a0a0c0', fontSize: '18px', marginBottom: '24px' }}>
+            Join 10,000+ Kenyans making money online
+          </p>
+          {!isPremium && (
+            <button 
+              onClick={() => setShowPay(true)}
+              style={{ 
+                padding: '16px 32px', 
+                borderRadius: '12px', 
+                border: 'none',
+                background: 'linear-gradient(90deg, #0070f3, #00d4aa)',
+                color: '#fff',
+                fontSize: '18px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Unlock Pro — KES 100
+            </button>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '40px' }}>
+          {['👥 10K+ Users', '💵 KES 2M+ Paid', '⭐ 4.8/5 Rating', '🛡️ 100% Secure'].map((s, i) => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '24px', marginBottom: '4px' }}>{s.split(' ')[0]}</div>
+              <div style={{ color: '#a0a0c0', fontSize: '12px' }}>{s.split(' ').slice(1).join(' ')}</div>
             </div>
-            {index === 1 && <PlaceholderAd type="banner" />}
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
+          {['hustles', 'deals', 'earnings'].map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: 'none',
+                background: tab === t ? '#0070f3' : 'rgba(255,255,255,0.05)',
+                color: '#fff',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                fontWeight: tab === t ? 600 : 400
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {tab === 'hustles' && hustles.map(h => (
+          <div key={h.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '20px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '18px' }}>{h.title}</h3>
+              <span style={{ color: '#00d4aa', fontWeight: 600 }}>{h.pay}</span>
+              {!h.free && !isPremium && (
+                <span style={{ marginLeft: '8px', padding: '2px 8px', background: '#ff4757', borderRadius: '4px', fontSize: '12px' }}>PRO</span>
+              )}
+            </div>
+            {(h.free || isPremium) && (
+              <button style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#0070f3', color: '#fff', cursor: 'pointer' }}>
+                Start
+              </button>
+            )}
           </div>
         ))}
 
-        {lockedHustles.length > 0 && (
-          <div style={{
-            background: '#fff',
-            borderRadius: '16px',
-            padding: '32px 24px',
-            marginTop: '24px',
-            textAlign: 'center',
-            border: '2px dashed #dee2e6',
-            position: 'relative'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: '-12px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#6f42c1',
-              color: '#fff',
-              padding: '4px 16px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: 700
-            }}>
-              🔒 PREMIUM
-            </div>
-            
-            <div style={{ fontSize: '40px', marginBottom: '16px' }}>💎</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
-              Unlock 20+ Premium Hustles
-            </h3>
-            <p style={{ color: '#6c757d', fontSize: '14px', marginBottom: '24px' }}>
-              Get access to high-paying tasks, exclusive deals, and priority support
-            </p>
-            
-            <div style={{
-              background: '#f8f9fa',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '24px'
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0070f3' }}>
-                KES 30
-                <span style={{
-                  fontSize: '14px',
-                  color: '#6c757d',
-                  textDecoration: 'line-through',
-                  marginLeft: '8px'
-                }}>
-                  KES 100
-                </span>
-              </div>
-              <div style={{ fontSize: '12px', color: '#28a745', marginTop: '4px' }}>
-                ✓ One-time payment, lifetime access
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowPayment(true)}
-              style={{
-                width: '100%',
-                padding: '16px',
-                borderRadius: '12px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #0070f3, #00d4aa)',
-                color: '#fff',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                marginBottom: '12px'
-              }}
+        {tab === 'deals' && !isPremium && (
+          <div style={{ textAlign: 'center', padding: '40px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎯</div>
+            <h2>Premium Deals Locked</h2>
+            <p style={{ color: '#a0a0c0' }}>Get exclusive high-paying deals from verified partners.</p>
+            <button 
+              onClick={() => setShowPay(true)}
+              style={{ padding: '12px 24px', borderRadius: '8px', border: 'none', background: '#0070f3', color: '#fff', cursor: 'pointer', marginTop: '16px' }}
             >
-              🔓 Unlock with Payment
+              Unlock Pro
             </button>
-
-            <button
-              onClick={handleWatchAd}
-              disabled={watchingAd}
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: '12px',
-                border: '2px solid #0070f3',
-                background: 'transparent',
-                color: '#0070f3',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: watchingAd ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {watchingAd ? '📺 Watching ad... (5s)' : '📺 Watch Ad to Unlock 1 Hustle'}
-            </button>
-
-            <p style={{ fontSize: '12px', color: '#adb5bd', marginTop: '16px' }}>
-              💡 Watching ads helps keep hustles free for everyone
-            </p>
           </div>
         )}
 
-        <PlaceholderAd type="large" />
+        {tab === 'earnings' && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#a0a0c0' }}>
+            Complete hustles to see earnings here!
+          </div>
+        )}
 
       </div>
 
+      {/* Payment Modal */}
+      {showPay && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowPay(false)}>
+          <div style={{ background: '#1a1a3e', borderRadius: '20px', padding: '32px', maxWidth: '400px', width: '100%', border: '1px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()}>
+
+            {payStatus === 'idle' && (
+              <>
+                <h2 style={{ textAlign: 'center', marginBottom: '8px' }}>Unlock HustleHub Pro</h2>
+                <p style={{ textAlign: 'center', color: '#a0a0c0', marginBottom: '24px' }}>
+                  <span style={{ textDecoration: 'line-through', marginRight: '8px' }}>KES 500</span>
+                  <span style={{ color: '#00d4aa', fontWeight: 700 }}>KES 100</span>
+                  <span style={{ marginLeft: '8px', padding: '2px 8px', background: '#ff4757', borderRadius: '4px', fontSize: '12px' }}>80% OFF</span>
+                </p>
+                <input
+                  type="tel"
+                  placeholder="Enter M-Pesa number (2547XXXXXXXX)"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #1a1a3e', background: '#0a0a1a', color: '#fff', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box' }}
+                />
+                <button
+                  onClick={handlePayment}
+                  style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: 'linear-gradient(90deg, #0070f3, #00d4aa)', color: '#fff', fontSize: '18px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Pay with M-Pesa
+                </button>
+              </>
+            )}
+
+            {payStatus === 'sending' && (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                <p>Sending STK Push...</p>
+              </div>
+            )}
+
+            {payStatus === 'waiting' && (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📱</div>
+                <p>Check your phone! Enter M-Pesa PIN.</p>
+              </div>
+            )}
+
+            {payStatus === 'success' && (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                <h2>Welcome to Pro!</h2>
+                <p style={{ color: '#a0a0c0' }}>You now have access to all premium features.</p>
+              </div>
+            )}
+
+            {payStatus === 'failed' && (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>😕</div>
+                <h2>Payment Failed</h2>
+                <button onClick={() => setPayStatus('idle')} style={{ padding: '12px 24px', borderRadius: '8px', border: 'none', background: '#0070f3', color: '#fff', cursor: 'pointer', marginTop: '16px' }}>
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            <button onClick={() => setShowPay(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#a0a0c0', fontSize: '24px', cursor: 'pointer' }}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Auth Modal */}
       {showAuth && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }} onClick={() => setShowAuth(false)}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '400px',
-            width: '100%',
-            position: 'relative'
-          }} onClick={e => e.stopPropagation()}>
-            
-            <h2 style={{ textAlign: 'center', marginBottom: '24px', color: '#1a1a2e' }}>
-              {isSignUp ? 'Create Account' : 'Welcome Back'}
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowAuth(false)}>
+          <div style={{ background: '#1a1a3e', borderRadius: '20px', padding: '32px', maxWidth: '400px', width: '100%', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+
+            <h2 style={{ color: '#fff', marginBottom: '24px', textAlign: 'center' }}>
+              {isSignUp ? 'Create Account' : 'Sign In'}
             </h2>
 
             <form onSubmit={handleAuthSubmit}>
@@ -515,26 +384,28 @@ export default function App() {
                     value={authFullName}
                     onChange={(e) => setAuthFullName(e.target.value)}
                     required
-                    style={inputStyle}
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '2px solid #1a1a3e', background: '#0a0a1a', color: '#fff', fontSize: '16px', marginBottom: '12px', boxSizing: 'border-box' }}
                   />
                   <input
                     type="tel"
-                    placeholder="Phone (2547XXXXXXXX)"
+                    placeholder="Phone (254712345678)"
                     value={authPhone}
                     onChange={(e) => setAuthPhone(e.target.value)}
                     required
-                    style={inputStyle}
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '2px solid #1a1a3e', background: '#0a0a1a', color: '#fff', fontSize: '16px', marginBottom: '12px', boxSizing: 'border-box' }}
                   />
                 </>
               )}
+
               <input
                 type="email"
                 placeholder="Email"
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
                 required
-                style={inputStyle}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '2px solid #1a1a3e', background: '#0a0a1a', color: '#fff', fontSize: '16px', marginBottom: '12px', boxSizing: 'border-box' }}
               />
+
               <input
                 type="password"
                 placeholder="Password (min 6 chars)"
@@ -542,7 +413,7 @@ export default function App() {
                 onChange={(e) => setAuthPassword(e.target.value)}
                 required
                 minLength={6}
-                style={inputStyle}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '2px solid #1a1a3e', background: '#0a0a1a', color: '#fff', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box' }}
               />
 
               <button
@@ -553,7 +424,7 @@ export default function App() {
                   padding: '14px',
                   borderRadius: '12px',
                   border: 'none',
-                  background: authLoading ? '#ccc' : '#0070f3',
+                  background: authLoading ? '#333' : '#0070f3',
                   color: '#fff',
                   fontSize: '16px',
                   fontWeight: 600,
@@ -564,11 +435,11 @@ export default function App() {
               </button>
             </form>
 
-            <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px', color: '#6c757d' }}>
+            <p style={{ color: '#a0a0c0', textAlign: 'center', marginTop: '16px', fontSize: '14px' }}>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
               <button
                 onClick={() => { setIsSignUp(!isSignUp); setAuthMessage('') }}
-                style={{ background: 'none', border: 'none', color: '#0070f3', cursor: 'pointer', fontWeight: 600 }}
+                style={{ background: 'none', border: 'none', color: '#0070f3', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
               >
                 {isSignUp ? 'Sign In' : 'Sign Up'}
               </button>
@@ -579,8 +450,8 @@ export default function App() {
                 marginTop: '16px',
                 padding: '12px',
                 borderRadius: '8px',
-                background: authMessage.startsWith('✅') ? '#d4edda' : '#f8d7da',
-                color: authMessage.startsWith('✅') ? '#155724' : '#721c24',
+                background: authMessage.startsWith('Sign up') || authMessage.startsWith('Signed in') ? 'rgba(0,255,0,0.1)' : 'rgba(255,0,0,0.1)',
+                color: authMessage.startsWith('Sign up') || authMessage.startsWith('Signed in') ? '#4ade80' : '#ff4757',
                 fontSize: '14px',
                 textAlign: 'center'
               }}>
@@ -596,146 +467,13 @@ export default function App() {
                 right: '16px',
                 background: 'none',
                 border: 'none',
+                color: '#a0a0c0',
                 fontSize: '24px',
-                cursor: 'pointer',
-                color: '#6c757d'
+                cursor: 'pointer'
               }}
             >
               ✕
             </button>
-          </div>
-        </div>
-      )}
-
-      {showPayment && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }} onClick={() => setShowPayment(false)}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '400px',
-            width: '100%'
-          }} onClick={e => e.stopPropagation()}>
-            
-            {payStatus === 'idle' && (
-              <>
-                <h2 style={{ textAlign: 'center', marginBottom: '8px' }}>Unlock Premium</h2>
-                <p style={{ textAlign: 'center', color: '#6c757d', marginBottom: '24px' }}>
-                  One-time payment of KES 30
-                </p>
-                <input
-                  type="tel"
-                  placeholder="M-Pesa number (2547XXXXXXXX)"
-                  value={payPhone}
-                  onChange={(e) => setPayPhone(e.target.value)}
-                  style={inputStyle}
-                />
-                <button
-                  onClick={handlePayment}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: '#0070f3',
-                    color: '#fff',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Pay with M-Pesa
-                </button>
-              </>
-            )}
-
-            {payStatus === 'sending' && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '48px' }}>⏳</div>
-                <p>Sending payment request...</p>
-              </div>
-            )}
-
-            {payStatus === 'waiting' && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '48px' }}>📱</div>
-                <p>Check your phone and enter M-Pesa PIN</p>
-              </div>
-            )}
-
-            {payStatus === 'success' && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '48px' }}>🎉</div>
-                <h3>Payment Successful!</h3>
-                <p>All hustles unlocked</p>
-              </div>
-            )}
-
-            {payStatus === 'failed' && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '48px' }}>😕</div>
-                <h3>Payment Failed</h3>
-                <button onClick={() => setPayStatus('idle')} style={{
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#0070f3',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  marginTop: '16px'
-                }}>
-                  Try Again
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {watchingAd && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: '#000',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          color: '#fff'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px' }}>📺</div>
-          <h2>Watching Advertisement</h2>
-          <p>Please wait while the ad plays...</p>
-          <div style={{
-            width: '200px',
-            height: '4px',
-            background: '#333',
-            borderRadius: '2px',
-            marginTop: '24px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              width: '100%',
-              height: '100%',
-              background: '#0070f3',
-              animation: 'progress 5s linear'
-            }} />
           </div>
         </div>
       )}
