@@ -188,7 +188,7 @@ export default function App() {
       maxWidth: '100%',
       overflowX: 'hidden'
     }}>
-
+      
       <header style={{
         background: '#fff',
         borderBottom: '1px solid #e9ecef',
@@ -402,7 +402,7 @@ export default function App() {
             }}>
               🔒 PREMIUM
             </div>
-
+            
             <div style={{ fontSize: '40px', marginBottom: '16px' }}>💎</div>
             <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
               Unlock 20+ Premium Hustles
@@ -410,7 +410,7 @@ export default function App() {
             <p style={{ color: '#6c757d', fontSize: '14px', marginBottom: '24px' }}>
               Get access to high-paying tasks, exclusive deals, and priority support
             </p>
-
+            
             <div style={{
               background: '#f8f9fa',
               borderRadius: '12px',
@@ -501,7 +501,7 @@ export default function App() {
             width: '100%',
             position: 'relative'
           }} onClick={e => e.stopPropagation()}>
-
+            
             <h2 style={{ textAlign: 'center', marginBottom: '24px', color: '#1a1a2e' }}>
               {isSignUp ? 'Create Account' : 'Welcome Back'}
             </h2>
@@ -628,7 +628,7 @@ export default function App() {
             maxWidth: '400px',
             width: '100%'
           }} onClick={e => e.stopPropagation()}>
-
+            
             {payStatus === 'idle' && (
               <>
                 <h2 style={{ textAlign: 'center', marginBottom: '8px' }}>Unlock Premium</h2>
