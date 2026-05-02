@@ -1,108 +1,98 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import Toast from '../components/Toast'
 
 export default function Login() {
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [step, setStep] = useState('phone')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState(null)
+  const [error, setError] = useState('')
 
-  const handleSendOTP = async () => {
+  async function handleSubmit(e) {
+    e.preventDefault()
     setLoading(true)
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ phone })
-      if (error) throw error
-      setStep('otp')
-      setToast({ message: 'OTP sent!', type: 'success' })
-    } catch (error) {
-      setToast({ message: error.message, type: 'error' })
-    } finally {
-      setLoading(false)
-    }
-  }
+    setError('')
 
-  const handleVerifyOTP = async () => {
-    setLoading(true)
-    try {
-      const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' })
-      if (error) throw error
-      setToast({ message: 'Logged in!', type: 'success' })
-      window.location.reload()
-    } catch (error) {
-      setToast({ message: error.message, type: 'error' })
-    } finally {
-      setLoading(false)
-    }
+    const { error } = isSignUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) setError(error.message)
+    setLoading(false)
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px', background: 'var(--white)' }}>
-      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px',
+      background: '#f8f9fa'
+    }}>
+      <div style={{ fontSize: '48px', marginBottom: '16px' }}>💼</div>
+      <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>HustleHub</h1>
+      <p style={{ color: '#6c757d', marginBottom: '32px' }}>Earn money using your phone</p>
 
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <div style={{ fontSize: '64px', marginBottom: '16px' }}>💼</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>HustleHub</h1>
-        <p style={{ color: 'var(--neutral-700)' }}>Earn money using your phone</p>
-      </div>
+      <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '360px' }}>
+        <input
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          style={{
+            width: '100%', padding: '14px', borderRadius: '10px',
+            border: '1px solid #dee2e6', fontSize: '15px',
+            marginBottom: '12px', boxSizing: 'border-box'
+          }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          minLength={6}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '10px',
+            border: '1px solid #dee2e6', fontSize: '15px',
+            marginBottom: '12px', boxSizing: 'border-box'
+          }}
+        />
 
-      {step === 'phone' ? (
-        <div>
-          <div className="input-group">
-            <label className="input-label">Phone Number</label>
-            <input
-              className="input"
-              type="tel"
-              placeholder="2547XX XXX XXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleSendOTP}
-            disabled={loading || phone.length < 10}
-          >
-            {loading ? 'Sending...' : 'Send OTP'}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <div className="input-group">
-            <label className="input-label">Enter OTP</label>
-            <input
-              className="input"
-              type="number"
-              placeholder="123456"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              maxLength={6}
-            />
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleVerifyOTP}
-            disabled={loading || otp.length < 6}
-          >
-            {loading ? 'Verifying...' : 'Verify & Login'}
-          </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() => setStep('phone')}
-            style={{ marginTop: '8px' }}
-          >
-            Change number
-          </button>
-        </div>
-      )}
+        {error && (
+          <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '12px' }}>
+            {error}
+          </p>
+        )}
 
-      <div style={{ marginTop: '32px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '12px', color: 'var(--neutral-500)' }}>
-          <span>✓ Secure</span>
-          <span>✓ Verified</span>
-          <span>✓ 24/7</span>
-        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '10px',
+            border: 'none', background: '#0070f3', color: '#fff',
+            fontSize: '16px', fontWeight: 600, cursor: 'pointer'
+          }}
+        >
+          {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+        </button>
+      </form>
+
+      <p style={{ marginTop: '20px', fontSize: '14px', color: '#6c757d' }}>
+        {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+        <button
+          onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+          style={{ background: 'none', border: 'none', color: '#0070f3', cursor: 'pointer', fontWeight: 600 }}
+        >
+          {isSignUp ? 'Sign In' : 'Sign Up'}
+        </button>
+      </p>
+
+      <div style={{ marginTop: '24px', display: 'flex', gap: '16px', color: '#28a745', fontSize: '13px' }}>
+        <span>✓ Secure</span><span>✓ Verified</span><span>✓ 24/7</span>
       </div>
     </div>
   )

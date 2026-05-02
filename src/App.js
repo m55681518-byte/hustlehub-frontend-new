@@ -12,6 +12,8 @@ import BottomNav from './components/BottomNav'
 import Loading from './components/Loading'
 import './styles/globals.css'
 
+console.log('NEW APP.JS LOADED - VERSION 2.0')
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [currentPage, setCurrentPage] = useState('home')
