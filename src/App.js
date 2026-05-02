@@ -1,27 +1,78 @@
-import { useState, useEffect } from 'react' 
-import { createClient } from '@supabase/supabase-js' 
- 
-const supabase = createClient( 
-  'https://hcriatxprcifgwfqokbw.supabase.co', 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjcmlhdHhwcmNpZmd3ZnFva2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODAyNzIsImV4cCI6MjA5MzE1NjI3Mn0.JUbLKt8MZD15pf9NRz-xrIbcaBNNzPcv_TShH3YeHiU' 
-) 
- 
-export default function App() { 
-  const [count, setCount] = useState(0) 
- 
-  useEffect(() => { 
-    console.log('App mounted') 
-  }, []) 
- 
-  return ( 
-    <div> 
-      <h1>HustleHub</h1> 
-      <p>Count: {count}</p> 
-      <button onClick={() => setCount(count + 1)}>Click me</button> 
-      <button onClick={async () => { 
-        const { data } = await supabase.auth.getUser() 
-        console.log(data) 
-      }}>Test Auth</button> 
-    </div> 
-  ) 
-} 
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabase'
+import Home from './pages/Home'
+import FindWork from './pages/FindWork'
+import PostHustle from './pages/PostHustle'
+import Messages from './pages/Messages'
+import Profile from './pages/Profile'
+import Login from './pages/Login'
+import HustleDetail from './pages/HustleDetail'
+import Settings from './pages/Settings'
+import BottomNav from './components/BottomNav'
+import Loading from './components/Loading'
+import './styles/globals.css'
+
+export default function App() {
+  const [session, setSession] = useState(null)
+  const [currentPage, setCurrentPage] = useState('home')
+  const [selectedHustle, setSelectedHustle] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleHustleClick = (hustle) => {
+    setSelectedHustle(hustle)
+    setCurrentPage('hustleDetail')
+  }
+
+  const renderPage = () => {
+    const props = { setPage: setCurrentPage, onHustleClick: handleHustleClick }
+
+    switch (currentPage) {
+      case 'home':
+        return <Home {...props} />
+      case 'findWork':
+        return <FindWork {...props} />
+      case 'postHustle':
+        return <PostHustle {...props} />
+      case 'messages':
+        return <Messages {...props} />
+      case 'profile':
+        return <Profile {...props} session={session} />
+      case 'hustleDetail':
+        return <HustleDetail hustle={selectedHustle} onBack={() => setCurrentPage('findWork')} />
+      case 'settings':
+        return <Settings {...props} />
+      default:
+        return <Home {...props} />
+    }
+  }
+
+  if (loading) return <Loading />
+  if (!session) return <Login />
+
+  const showNav = ['home', 'findWork', 'postHustle', 'messages', 'profile'].includes(currentPage)
+
+  return (
+    <div className="app">
+      <main className="main-content">
+        {renderPage()}
+      </main>
+
+      {showNav && (
+        <BottomNav currentPage={currentPage} setPage={setCurrentPage} />
+      )}
+    </div>
+  )
+}
