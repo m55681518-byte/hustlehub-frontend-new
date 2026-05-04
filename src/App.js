@@ -1,3 +1,5 @@
+// At the very top of App.js, add this:
+console.log("Vercel Build Update - May 2026");
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Home from './pages/Home'
