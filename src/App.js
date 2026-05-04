@@ -1,5 +1,3 @@
-// At the very top of App.js, add this:
-console.log("Vercel Build Update - May 2026");
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Home from './pages/Home'
@@ -15,6 +13,9 @@ import BottomNav from './components/BottomNav'
 import Loading from './components/Loading'
 import AIAssistant from './components/AIAssistant'
 import './styles/globals.css'
+
+// The log must come AFTER the imports[cite: 7, 8]
+console.log("Vercel Build Update - May 2026");
 
 export default function App() {
   const [session, setSession] = useState(null)
