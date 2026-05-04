@@ -136,4 +136,4 @@ export default function App() {
       <AIAssistant setPage={setCurrentPage} />
     </div>
   )
-}
+}"// Final build attempt" 
