@@ -39,6 +39,17 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // IMPORTANT: This triggers the AdSense unit to load when the overlay appears
+  useEffect(() => {
+    if (showAd) {
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {
+        console.error("AdSense load error:", e);
+      }
+    }
+  }, [showAd]);
+
   const checkPremiumStatus = async (userId) => {
     try {
       const { data } = await supabase
@@ -120,11 +131,20 @@ export default function App() {
       <main className="main-content">{renderPage()}</main>
       {showAd && (
         <div className="ad-fullscreen-overlay">
-          <div className="ad-badge">PREMIUM AD</div>
-          <div style={{ margin: '40px 0', textAlign: 'center' }}>
-             <h2 className="font-display" style={{ fontSize: '32px' }}>👑 HustleHub Pro</h2>
-             <p style={{ marginTop: '10px', opacity: 0.8 }}>Tired of waiting? Get Pro for KES 30 and never see an ad again.</p>
-             <button onClick={() => { setShowAd(false); setCurrentPage('premium'); }} className="btn btn-primary" style={{ marginTop: '24px' }}>Upgrade Now</button>
+          <div className="ad-badge">SPONSORED AD</div>
+          <div style={{ margin: '20px 0', textAlign: 'center' }}>
+             <div style={{ minHeight: '250px', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}>
+                
+                {/* LIVE ADSENSE UNIT: HustleHub_Overlay_300x250 */}
+                <ins className="adsbygoogle"
+                     style={{ display: 'inline-block', width: '300px', height: '250px' }}
+                     data-ad-client="ca-pub-6389668738867602"
+                     data-ad-slot="6531877654"></ins>
+                     
+             </div>
+             
+             <p style={{ marginTop: '15px', fontSize: '14px', opacity: 0.8 }}>Want to skip ads? Get Pro for KES 30.</p>
+             <button onClick={() => { setShowAd(false); setCurrentPage('premium'); }} className="btn btn-primary" style={{ marginTop: '10px' }}>Upgrade Now</button>
           </div>
           <div className="ad-timer">Unlocking job in {adTimer}s...</div>
         </div>
