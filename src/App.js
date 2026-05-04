@@ -14,9 +14,6 @@ import Loading from './components/Loading'
 import AIAssistant from './components/AIAssistant'
 import './styles/globals.css'
 
-// The log must come AFTER the imports[cite: 7, 8]
-console.log("Vercel Build Update - May 2026");
-
 export default function App() {
   const [session, setSession] = useState(null)
   const [currentPage, setCurrentPage] = useState('home')
@@ -136,4 +133,4 @@ export default function App() {
       <AIAssistant setPage={setCurrentPage} />
     </div>
   )
-}"// Final build attempt" 
+}
