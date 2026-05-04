@@ -1,165 +1,78 @@
-import React, { useState } from 'react'
-import { api } from '../lib/api'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import Toast from '../components/Toast'
 
-const categories = ['Delivery', 'Cleaning', 'Tech', 'Design', 'Writing', 'Marketing', 'Other']
+const CATEGORIES = ['Delivery', 'Cleaning', 'Tech', 'Design', 'Writing', 'Marketing', 'Repairs', 'Other']
 
 export default function PostHustle({ setPage }) {
-  const [step, setStep] = useState(1)
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: '',
-    payout_amount: ''
-  })
-  const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState(null)
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ title: '', category: '', description: '', payout_amount: '' });
 
-  const handleChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }))
-  }
+  const update = (field, val) => { setForm(f => ({ ...f, [field]: val })); setError(''); }
 
-  const handleSubmit = async () => {
-    setLoading(true)
+  async function submit() {
+    setLoading(true);
     try {
-      await supabase.auth.getUser()
-
-      const res = await api.createHustle({
-        ...form,
-        payout_amount: parseFloat(form.payout_amount) || 0
-      })
-
-      if (res.success) {
-        setToast({ message: 'Hustle posted successfully! 🎉', type: 'success' })
-        setTimeout(() => setPage('home'), 2000)
-      } else {
-        setToast({ message: res.message || 'Failed to post hustle', type: 'error' })
-      }
-    } catch (error) {
-      setToast({ message: 'Something went wrong', type: 'error' })
+      const { data: { user } } = await supabase.auth.getUser();
+      const res = await fetch('https://hustlehub-backend-new.onrender.com/hustles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          payout_amount: Number(form.payout_amount),
+          posted_by: user?.id,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) setSuccess(true);
+      else setError(json.message || 'Error posting hustle');
+    } catch {
+      setError('Connection error. Check your internet.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  const isStepValid = () => {
-    if (step === 1) return form.title.length >= 3 && form.category
-    if (step === 2) return form.description.length >= 10
-    if (step === 3) return form.payout_amount && parseFloat(form.payout_amount) > 0
-    return true
-  }
+  if (success) return (
+    <div style={{ padding: '40px', textAlign: 'center' }}>
+      <h2>Hustle Posted!</h2>
+      <button onClick={() => setPage('findWork')} style={{ marginTop: '20px', padding: '12px 24px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '8px' }}>View Jobs</button>
+    </div>
+  );
 
   return (
-    <div className="page">
-      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-
-      <div className="top-bar">
-        <button className="btn btn-ghost" style={{ width: 'auto' }} onClick={() => step > 1 ? setStep(step - 1) : setPage('home')}>
-          ← {step > 1 ? 'Back' : 'Cancel'}
-        </button>
-        <h1>Post a Hustle</h1>
-        <span style={{ fontSize: '14px', color: 'var(--neutral-500)' }}>Step {step}/3</span>
-      </div>
-
-      <div style={{ padding: '16px' }}>
-        <div className="step-indicator">
-          {[1, 2, 3].map(s => (
-            <React.Fragment key={s}>
-              <div className={`step ${s === step ? 'active' : s < step ? 'completed' : ''}`}>
-                {s < step ? '✓' : s}
-              </div>
-              {s < 3 && <div className={`step-line ${s < step ? 'completed' : ''}`} />}
-            </React.Fragment>
-          ))}
-        </div>
+    <div style={{ padding: '20px', background: '#fff', minHeight: '100vh' }}>
+      <h1 style={{ fontSize: '20px', fontWeight: 800 }}>Post a Hustle</h1>
+      
+      <div style={{ marginTop: '20px' }}>
+        {step === 0 && (
+          <>
+            <input placeholder="Job Title" style={inputStyle} value={form.title} onChange={e => update('title', e.target.value)} />
+            <select style={inputStyle} value={form.category} onChange={e => update('category', e.target.value)}>
+              <option value="">Select Category</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <textarea placeholder="What needs to be done?" style={{ ...inputStyle, height: '120px' }} value={form.description} onChange={e => update('description', e.target.value)} />
+            <button onClick={() => setStep(1)} style={primaryBtn}>Next</button>
+          </>
+        )}
 
         {step === 1 && (
-          <div>
-            <div className="input-group">
-              <label className="input-label">What do you need done?</label>
-              <input
-                className="input"
-                placeholder="e.g., Deliver package to Westlands"
-                value={form.title}
-                onChange={(e) => handleChange('title', e.target.value)}
-                maxLength={100}
-              />
-              <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--neutral-500)', marginTop: '4px' }}>
-                {form.title.length}/100
-              </div>
+          <>
+            <input type="number" placeholder="Payout Amount (KSh)" style={inputStyle} value={form.payout_amount} onChange={e => update('payout_amount', e.target.value)} />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setStep(0)} style={{ ...primaryBtn, background: '#eee', color: '#000' }}>Back</button>
+              <button onClick={submit} style={primaryBtn} disabled={loading}>{loading ? 'Posting...' : 'Post Now'}</button>
             </div>
-
-            <div className="input-group">
-              <label className="input-label">Category</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    className="btn"
-                    style={{
-                      background: form.category === cat ? 'var(--primary-light)' : 'var(--white)',
-                      border: form.category === cat ? '2px solid var(--primary)' : '2px solid var(--neutral-300)',
-                      color: form.category === cat ? 'var(--primary)' : 'var(--neutral-700)'
-                    }}
-                    onClick={() => handleChange('category', cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          </>
         )}
-
-        {step === 2 && (
-          <div>
-            <div className="input-group">
-              <label className="input-label">Description</label>
-              <textarea
-                className="input"
-                placeholder="Describe what you need in detail..."
-                value={form.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div>
-            <div className="input-group">
-              <label className="input-label">Budget (KSh)</label>
-              <input
-                className="input"
-                type="number"
-                placeholder="e.g., 1500"
-                value={form.payout_amount}
-                onChange={(e) => handleChange('payout_amount', e.target.value)}
-              />
-            </div>
-
-            <div className="card" style={{ marginTop: '16px' }}>
-              <h4 style={{ fontWeight: 600, marginBottom: '8px' }}>Preview</h4>
-              <p><strong>{form.title}</strong></p>
-              <p style={{ color: 'var(--neutral-700)', fontSize: '14px' }}>{form.description}</p>
-              <p style={{ color: 'var(--primary)', fontWeight: 700, marginTop: '8px' }}>
-                KSh {form.payout_amount}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: '24px' }}
-          onClick={step === 3 ? handleSubmit : () => setStep(step + 1)}
-          disabled={!isStepValid() || loading}
-        >
-          {loading ? 'Posting...' : step === 3 ? 'Publish Hustle' : 'Continue →'}
-        </button>
       </div>
+      {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
     </div>
-  )
+  );
 }
+
+const inputStyle = { width: '100%', padding: '14px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '10px', fontSize: '16px' }
+const primaryBtn = { width: '100%', padding: '16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '16px' }

@@ -1,162 +1,165 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { api } from '../lib/api'
-import Loading from '../components/Loading'
-import EmptyState from '../components/EmptyState'
 
-export default function Profile({ setPage, session }) {
+export default function Profile({ setPage, session, isPro }) {
   const [profile, setProfile] = useState(null)
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ full_name: '', phone_number: '' })
-
-  const loadProfile = useCallback(async () => {
-    try {
-      const userId = session.user.id
-      const [profileRes, paymentsRes] = await Promise.all([
-        api.getProfile(userId),
-        api.getPayments(userId)
-      ])
-
-      if (profileRes.success) {
-        setProfile(profileRes.data)
-        setForm({
-          full_name: profileRes.data.full_name || '',
-          phone_number: profileRes.data.phone_number || ''
-        })
-      }
-      if (paymentsRes.success) setPayments(paymentsRes.data)
-    } catch (error) {
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [session])
+  const [signing, setSigning] = useState(false)
 
   useEffect(() => {
-    loadProfile()
-  }, [loadProfile])
+    async function loadData() {
+      if (!session?.user) return
 
-  const handleSave = async () => {
-    try {
-      const res = await api.updateProfile(session.user.id, form)
-      if (res.success) {
-        setProfile(res.data)
-        setEditing(false)
+      try {
+        // 1. Load Profile Data (Earnings & Phone)
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profileData) setProfile(profileData)
+
+        // 2. Load Payment History from your Render backend
+        const res = await fetch('https://hustlehub-backend-new.onrender.com/payments')
+        const json = await res.json()
+        if (json.success) setPayments(json.data || [])
+      } catch (err) {
+        console.error("Error loading dashboard:", err)
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Error saving:', error)
     }
-  }
+    loadData()
+  }, [session])
 
-  const handleLogout = async () => {
+  async function signOut() {
+    setSigning(true)
     await supabase.auth.signOut()
-    window.location.reload()
   }
 
-  if (loading) return <Loading />
+  // Handle display logic for Phone as ID
+  const displayId = profile?.phone_number || session?.user?.email?.split('@')[0] || 'Hustler'
+  const initial = displayId[0]?.toUpperCase() || 'H'
 
   return (
-    <div className="page">
-      <div style={{ textAlign: 'center', padding: '24px 0' }}>
+    <div style={{ background: 'var(--neutral-50)', minHeight: '100vh', paddingBottom: '100px' }}>
+      {/* ── Header ── */}
+      <div style={{
+        background: 'linear-gradient(160deg, #1a1a1a 0%, #333 100%)',
+        padding: '40px 20px 80px',
+        position: 'relative',
+      }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 800, color: 'var(--white)', marginBottom: 32 }}>
+          Hustler Dashboard
+        </h1>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: '50%', background: 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: 32, color: 'var(--white)', border: '3px solid rgba(255,255,255,0.2)'
+          }}>
+            {initial}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: 'var(--white)' }}>
+              {displayId} {isPro && '👑'}
+            </p>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>ID: {session?.user?.id.slice(0, 8)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Earnings Card ── */}
+      <div style={{ padding: '0 20px', marginTop: -40, marginBottom: 20 }}>
         <div style={{
-          width: '96px',
-          height: '96px',
-          borderRadius: '50%',
-          background: 'var(--primary-light)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '40px',
-          margin: '0 auto 16px',
-          border: '4px solid var(--primary)'
+          background: 'var(--white)', borderRadius: 'var(--radius-lg)', padding: '24px',
+          boxShadow: 'var(--shadow-lg)', border: '1px solid var(--neutral-100)', textAlign: 'center'
         }}>
-          {profile?.full_name?.[0] || '👤'}
+          <p style={{ color: 'var(--neutral-500)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}>Available Balance</p>
+          <h2 style={{ fontSize: '36px', fontWeight: 800, margin: '8px 0', color: 'var(--neutral-900)' }}>
+            KES {profile?.earnings?.toLocaleString() || '0.00'}
+          </h2>
+          <button 
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 700, marginTop: 12 }}
+            onClick={() => alert("Withdrawal request sent! Minimum KES 500.")}
+          >
+            Withdraw to M-Pesa
+          </button>
         </div>
+      </div>
 
-        {editing ? (
-          <div style={{ maxWidth: '300px', margin: '0 auto' }}>
-            <input
-              className="input"
-              value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              placeholder="Full name"
-              style={{ marginBottom: '8px' }}
-            />
-            <input
-              className="input"
-              value={form.phone_number}
-              onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-              placeholder="Phone number"
-              style={{ marginBottom: '8px' }}
-            />
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-              <button className="btn btn-secondary" onClick={() => setEditing(false)}>Cancel</button>
+      {/* ── Stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 20px', marginBottom: 24 }}>
+        <StatCard icon="💼" label="Hustles" value="0" />
+        <StatCard icon="⭐" label="Rating" value="5.0" />
+      </div>
+
+      {/* ── Upgrade Banner ── */}
+      {!isPro && (
+        <div style={{ padding: '0 20px', marginBottom: 24 }}>
+          <div onClick={() => setPage('premium')} style={{
+            background: 'linear-gradient(135deg, #16213E 0%, #0F3460 100%)',
+            borderRadius: '16px', padding: '20px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+          }}>
+            <div>
+              <h4 style={{ margin: 0, fontWeight: 800 }}>Unlock Pro Benefits 👑</h4>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', opacity: 0.8 }}>No ads & Instant M-Pesa withdrawals</p>
             </div>
+            <span style={{ background: 'var(--primary)', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>UPGRADE</span>
           </div>
-        ) : (
-          <>
-            <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{profile?.full_name || 'No name set'}</h2>
-            <p style={{ color: 'var(--neutral-700)', marginBottom: '16px' }}>{profile?.phone_number || 'No phone'}</p>
-            <button className="btn btn-secondary btn-sm" style={{ width: 'auto', margin: '0 auto' }} onClick={() => setEditing(true)}>
-              Edit Profile
-            </button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value">{payments.length}</div>
-          <div className="stat-label">Payments</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            KSh {payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + parseFloat(p.amount), 0).toLocaleString()}
-          </div>
-          <div className="stat-label">Total Paid</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{payments.filter(p => p.status === 'completed').length}</div>
-          <div className="stat-label">Completed</div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: '24px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>Recent Payments</h3>
-        {payments.length === 0 ? (
-          <EmptyState
-            icon="💳"
-            title="No payments yet"
-            description="Your payment history will appear here"
-          />
-        ) : (
-          payments.slice(0, 5).map(payment => (
-            <div key={payment.id} className="card" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{payment.transaction_type || 'Payment'}</div>
-                <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>
-                  {new Date(payment.created_at).toLocaleDateString()}
+      {/* ── Recent Payments ── */}
+      <div style={{ padding: '0 20px' }}>
+        <SectionTitle>Payment History</SectionTitle>
+        <div style={{ background: 'var(--white)', borderRadius: '16px', border: '1px solid var(--neutral-100)', overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: 30, textAlign: 'center' }}>Loading...</div>
+          ) : payments.length === 0 ? (
+            <div style={{ padding: 30, textAlign: 'center', color: '#999', fontSize: '14px' }}>No transactions found</div>
+          ) : (
+            payments.map((p, i) => (
+              <div key={i} style={{ padding: '16px', borderBottom: i !== payments.length - 1 ? '1px solid #f5f5f5' : 'none', display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{p.description || 'Top Up'}</div>
+                  <div style={{ fontSize: '12px', color: '#999' }}>{new Date(p.created_at).toLocaleDateString()}</div>
+                </div>
+                <div style={{ fontWeight: 800, color: p.status === 'success' ? '#22C55E' : '#94A3B8' }}>
+                  KSh {p.amount}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>KSh {parseFloat(payment.amount).toLocaleString()}</div>
-                <span className={`badge badge-${payment.status === 'completed' ? 'success' : payment.status === 'failed' ? 'error' : 'warning'}`}>
-                  {payment.status}
-                </span>
-              </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
 
-      <div style={{ marginTop: '24px' }}>
-        <button className="btn btn-ghost" style={{ color: 'var(--error)' }} onClick={handleLogout}>
-          Log Out
+      <div style={{ padding: '30px 20px' }}>
+        <button onClick={signOut} disabled={signing} style={{ width: '100%', background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECACA', padding: '16px', borderRadius: '12px', fontWeight: 700 }}>
+          {signing ? 'Signing out...' : '🚪 Log Out'}
         </button>
       </div>
     </div>
+  )
+}
+
+function StatCard({ icon, label, value }) {
+  return (
+    <div style={{ background: 'white', padding: '16px', borderRadius: '16px', textAlign: 'center', border: '1px solid #eee' }}>
+      <div style={{ fontSize: '20px', marginBottom: '4px' }}>{icon}</div>
+      <div style={{ fontWeight: 800, fontSize: '18px' }}>{value}</div>
+      <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase' }}>{label}</div>
+    </div>
+  )
+}
+
+function SectionTitle({ children }) {
+  return (
+    <p style={{ fontSize: '12px', fontWeight: 800, color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12, marginLeft: 4 }}>
+      {children}
+    </p>
   )
 }
